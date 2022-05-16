@@ -349,7 +349,7 @@ namespace Inspelning.Recorder
                     await _captureFolder.CreateFileAsync($"{DateTime.Now:yyyyMMddHHmmss}{FileExtensionVideo}",
                         CreationCollisionOption.GenerateUniqueName);
 
-                var profile = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.Auto);
+                var profile = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.HD720p);
                 if (profile.Video != null)
                 {
                     profile.Video.Width = DefaultWidth;
