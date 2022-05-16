@@ -9,7 +9,7 @@ Minimum version is Windows 10, version 1809. Microsoft .NET 6.0.
  - Pause recording
  - Localization (Swedish and English)
 
-Recordings are temporarily saved to the application installation directory during recording. When a recording is stopped, the file is moved to the Videos folder.
+Recordings are temporarily saved to the application installation folder. When a recording is stopped, the file is moved to the Videos folder.
 
 Based upon the [Basic camera app sample](https://github.com/microsoft/windows-universal-samples/tree/main/Samples/CameraStarterKit) made available from Microsoft.
 
