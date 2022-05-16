@@ -121,12 +121,8 @@ namespace Inspelning.Recorder
             if (!_isRecordingPaused)
             {
                 await _mediaCapture.PauseRecordAsync(MediaCapturePauseBehavior.RetainHardwareResources);
-                await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
-                {
-                    TextBlockPause.Visibility = Visibility.Visible;
-                });
-
                 TextBlockRecording.Text = ResourceRetriever.GetString("CapturePagePauseText");
+                TextBlockPause.Visibility = Visibility.Visible;
                 PauseTimer();
                 PreviewControl.Opacity = 0.1;
                 _isRecordingPaused = true;
@@ -134,18 +130,9 @@ namespace Inspelning.Recorder
                 return;
             }
 
-            if (!_isRecordingPaused)
-            {
-                return;
-            }
-
-            await Dispatcher.RunAsync(CoreDispatcherPriority.Normal, () =>
-            {
-                TextBlockPause.Visibility = Visibility.Collapsed;
-            });
-
             await _mediaCapture.ResumeRecordAsync();
             TextBlockRecording.Text = ResourceRetriever.GetString("CapturePageRecText");
+            TextBlockPause.Visibility = Visibility.Collapsed;
             StartTimer();
             PreviewControl.Opacity = 1.0;
             _isRecordingPaused = false;
@@ -243,8 +230,10 @@ namespace Inspelning.Recorder
                 {
                     var mediaInitSettings = new MediaCaptureInitializationSettings
                     {
-                        VideoDeviceId = cameraDevice.Id, AudioDeviceId = microphoneDevice.Id, StreamingCaptureMode = StreamingCaptureMode.AudioAndVideo,
-                        MemoryPreference = MediaCaptureMemoryPreference.Cpu, SharingMode = MediaCaptureSharingMode.ExclusiveControl
+                        VideoDeviceId = cameraDevice.Id,
+                        AudioDeviceId = microphoneDevice.Id,
+                        StreamingCaptureMode = StreamingCaptureMode.AudioAndVideo,
+                        SharingMode = MediaCaptureSharingMode.ExclusiveControl
                     };
                     await _mediaCapture.InitializeAsync(mediaInitSettings);
                     _isInitialized = true;
@@ -360,7 +349,7 @@ namespace Inspelning.Recorder
                     await _captureFolder.CreateFileAsync($"{DateTime.Now:yyyyMMddHHmmss}{FileExtensionVideo}",
                         CreationCollisionOption.GenerateUniqueName);
 
-                var profile = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.Vga);
+                var profile = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.Auto);
                 if (profile.Video != null)
                 {
                     profile.Video.Width = DefaultWidth;
@@ -515,7 +504,7 @@ namespace Inspelning.Recorder
 
         private async void CurrentSuspending(object sender, SuspendingEventArgs e)
         {
-            Debug.WriteLine("Suspending!");
+            Debug.WriteLine("Current Suspending");
 
             // Handle global application events only if this page is active
             if (Frame.CurrentSourcePageType != typeof(CapturePage))
