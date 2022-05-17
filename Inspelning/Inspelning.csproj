@@ -18,7 +18,7 @@
     <ProjectTypeGuids>{A5A43C5B-DE2A-4C0C-9213-0A381AF9435A};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <WindowsXamlEnableOverview>true</WindowsXamlEnableOverview>
     <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
-    <PackageCertificateThumbprint>72034639623CD6D576440C3457B0A9289B25B6FF</PackageCertificateThumbprint>
+    <PackageCertificateThumbprint>114A00AF29111A89E87653272D2F4CC4DC8F76BD</PackageCertificateThumbprint>
     <PackageCertificateKeyFile>Inspelning_TemporaryKey.pfx</PackageCertificateKeyFile>
     <GenerateAppInstallerFile>True</GenerateAppInstallerFile>
     <AppxPackageSigningTimestampServerUrl>http://timestamp.sectigo.com</AppxPackageSigningTimestampServerUrl>

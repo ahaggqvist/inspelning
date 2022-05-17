@@ -32,38 +32,35 @@ namespace Inspelning.Recorder
         private readonly IDialogService _dialogService;
         private readonly DisplayRequest _displayRequest = new();
         private readonly IFileService _fileService;
-        private readonly ISettingService _settingService;
         private StorageFolder _captureFolder;
         private bool _isInitialized;
+        private bool _isPaused;
         private bool _isPreviewing;
         private bool _isRecording;
-        private bool _isRecordingPaused;
         private MediaCapture _mediaCapture;
         private int _secondsCount;
         private DispatcherTimer _timer;
 
         public CapturePage() : this(App.Container.Resolve<DialogService>(), App.Container.Resolve<DeviceService>(),
-            App.Container.Resolve<SettingService>(), App.Container.Resolve<FileService>())
+            App.Container.Resolve<FileService>())
         {
         }
 
-        public CapturePage(IDialogService dialogService, IDeviceService deviceService, ISettingService settingService,
+        public CapturePage(IDialogService dialogService, IDeviceService deviceService,
             IFileService fileService)
         {
             _dialogService = dialogService;
             _deviceService = deviceService;
-            _settingService = settingService;
             _fileService = fileService;
 
             InitializeComponent();
-
-            Application.Current.Suspending += CurrentSuspending;
         }
 
         protected override async void OnNavigatedTo(NavigationEventArgs e)
         {
             // Useful to know when to initialize/clean up the camera
             Application.Current.Suspending += CurrentSuspending;
+
             await InitializeCameraAsync();
 
             await _deviceService.PopulateDevicesUi(DeviceClass.VideoCapture, ComboBoxCameras);
@@ -87,7 +84,7 @@ namespace Inspelning.Recorder
 
         private async void RecordButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_isRecordingPaused)
+            if (_isPaused)
             {
                 return;
             }
@@ -118,25 +115,26 @@ namespace Inspelning.Recorder
 
         private async void PauseButton_OnClick(object sender, RoutedEventArgs e)
         {
-            if (!_isRecordingPaused)
+            if (_isPaused)
+            {
+                await _mediaCapture.ResumeRecordAsync();
+                TextBlockRecording.Text = ResourceRetriever.GetString("CapturePageRecText");
+                TextBlockPause.Visibility = Visibility.Collapsed;
+                StartTimer();
+                PreviewControl.Opacity = 1.0;
+                _isPaused = false;
+                _isRecording = true;
+            }
+            else
             {
                 await _mediaCapture.PauseRecordAsync(MediaCapturePauseBehavior.RetainHardwareResources);
                 TextBlockRecording.Text = ResourceRetriever.GetString("CapturePagePauseText");
                 TextBlockPause.Visibility = Visibility.Visible;
                 PauseTimer();
                 PreviewControl.Opacity = 0.1;
-                _isRecordingPaused = true;
+                _isPaused = true;
                 _isRecording = false;
-                return;
             }
-
-            await _mediaCapture.ResumeRecordAsync();
-            TextBlockRecording.Text = ResourceRetriever.GetString("CapturePageRecText");
-            TextBlockPause.Visibility = Visibility.Collapsed;
-            StartTimer();
-            PreviewControl.Opacity = 1.0;
-            _isRecordingPaused = false;
-            _isRecording = true;
         }
 
         private async void DevicesSelection_Changed(object sender, SelectionChangedEventArgs e)
@@ -235,7 +233,9 @@ namespace Inspelning.Recorder
                         StreamingCaptureMode = StreamingCaptureMode.AudioAndVideo,
                         SharingMode = MediaCaptureSharingMode.ExclusiveControl
                     };
+
                     await _mediaCapture.InitializeAsync(mediaInitSettings);
+
                     _isInitialized = true;
                 }
                 catch (UnauthorizedAccessException ex)
@@ -293,7 +293,9 @@ namespace Inspelning.Recorder
             try
             {
                 PreviewControl.Source = _mediaCapture;
+
                 await _mediaCapture.StartPreviewAsync();
+
                 _isPreviewing = true;
             }
             catch (FileLoadException ex)
@@ -314,6 +316,7 @@ namespace Inspelning.Recorder
 
             // Stop the preview
             _isPreviewing = false;
+
             await _mediaCapture.StopPreviewAsync();
 
             // Use the dispatcher because this method is sometimes called from non-UI threads
@@ -349,27 +352,28 @@ namespace Inspelning.Recorder
                     await _captureFolder.CreateFileAsync($"{DateTime.Now:yyyyMMddHHmmss}{FileExtensionVideo}",
                         CreationCollisionOption.GenerateUniqueName);
 
-                var profile = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.HD720p);
-                if (profile.Video != null)
+                var encodingProfile = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.HD720p);
+                if (encodingProfile.Video != null)
                 {
-                    profile.Video.Width = DefaultWidth;
-                    profile.Video.Height = DefaultHeight;
-                    profile.Video.ProfileId = H264ProfileIds.Baseline;
-                    profile.Video.Subtype = CodecSubtypes.VideoFormatH264;
+                    encodingProfile.Video.Width = DefaultWidth;
+                    encodingProfile.Video.Height = DefaultHeight;
+                    encodingProfile.Video.ProfileId = H264ProfileIds.Baseline;
+                    encodingProfile.Video.Subtype = CodecSubtypes.VideoFormatH264;
 
                     if (ComboBoxResolutions.SelectedValue != null)
                     {
                         var streamProperties = new StreamPropertiesHelper(
                             _mediaCapture.VideoDeviceController.GetMediaStreamProperties(MediaStreamType.VideoPreview));
-                        profile.Video.Width = streamProperties.Width;
-                        profile.Video.Height = streamProperties.Height;
+                        encodingProfile.Video.Width = streamProperties.Width;
+                        encodingProfile.Video.Height = streamProperties.Height;
                     }
                 }
 
-                await _mediaCapture.StartRecordToStorageFileAsync(profile, file);
+                await _mediaCapture.StartRecordToStorageFileAsync(encodingProfile, file);
+
                 _isRecording = true;
 
-                LogHelper.Information($"Recording started Width: {profile.Video?.Width} Height: {profile.Video?.Height}");
+                LogHelper.Information($"Recording started with width: {encodingProfile.Video?.Width} and height: {encodingProfile.Video?.Height}");
             }
             catch (Exception ex)
             {
@@ -388,22 +392,23 @@ namespace Inspelning.Recorder
             }
 
             _isRecording = false;
+
             await _mediaCapture.StopRecordAsync();
 
             ResetTimer();
 
             UpdateCaptureControls();
 
-            LogHelper.Information("Recording stopped");
+            LogHelper.Information("Recording was stopped");
 
             var progressRingPopup = new ProgressRingPopup(ResourceRetriever.GetString("DialogTextPleaseWaitWorking"));
             progressRingPopup.Show();
 
-            LogHelper.Information("Copy File Started");
+            LogHelper.Information("Started copying file");
 
             await _fileService.CopyFilesAsync();
 
-            LogHelper.Information("Copy File Ended");
+            LogHelper.Information("Ended copying file");
 
             progressRingPopup.Close();
         }
@@ -447,7 +452,7 @@ namespace Inspelning.Recorder
             // Pause button
             PauseButton.Visibility = _isRecording ? Visibility.Visible : Visibility.Collapsed;
 
-            // Show REC and timer if recording
+            // Show "Rec" and timer if recording
             TextBlockRecording.Visibility = _isRecording ? Visibility.Visible : Visibility.Collapsed;
             TextBlockTimer.Visibility = _isRecording ? Visibility.Visible : Visibility.Collapsed;
 
