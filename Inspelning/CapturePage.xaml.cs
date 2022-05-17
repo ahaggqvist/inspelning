@@ -26,8 +26,8 @@ namespace Inspelning.Recorder
     public sealed partial class CapturePage
     {
         private const int MaxDurationInMinutes = 120;
-        private const int DefaultWidth = 640;
-        private const int DefaultHeight = 360;
+        private const int DefaultVideoWidth = 1280;
+        private const int DefaultVideoHeight = 720;
         private readonly IDeviceService _deviceService;
         private readonly IDialogService _dialogService;
         private readonly DisplayRequest _displayRequest = new();
@@ -354,11 +354,11 @@ namespace Inspelning.Recorder
                     await _captureFolder.CreateFileAsync($"{DateTime.Now:yyyyMMddHHmmss}{FileExtensionVideo}",
                         CreationCollisionOption.GenerateUniqueName);
 
-                var encodingProfile = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.HD720p);
+                var encodingProfile = MediaEncodingProfile.CreateMp4(VideoEncodingQuality.Auto);
                 if (encodingProfile.Video != null)
                 {
-                    encodingProfile.Video.Width = DefaultWidth;
-                    encodingProfile.Video.Height = DefaultHeight;
+                    encodingProfile.Video.Width = DefaultVideoWidth;
+                    encodingProfile.Video.Height = DefaultVideoHeight;
                     encodingProfile.Video.ProfileId = H264ProfileIds.Baseline;
                     encodingProfile.Video.Subtype = CodecSubtypes.VideoFormatH264;
 
