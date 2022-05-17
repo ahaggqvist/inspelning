@@ -189,79 +189,81 @@ namespace Inspelning.Recorder
 
         private async Task InitializeCameraAsync(string cameraDeviceId = null, string microphoneDeviceId = null)
         {
-            if (_mediaCapture == null)
+            if (_mediaCapture != null)
             {
-                var cameraDevice = await _deviceService.FindFirstCameraDeviceAsync();
-                if (!string.IsNullOrEmpty(cameraDeviceId))
+                return;
+            }
+
+            var cameraDevice = await _deviceService.FindFirstCameraDeviceAsync();
+            if (!string.IsNullOrEmpty(cameraDeviceId))
+            {
+                cameraDevice = await _deviceService.FindDeviceAsync(cameraDeviceId);
+            }
+
+            if (cameraDevice == null)
+            {
+                _dialogService.DisplayDialog(ResourceRetriever.GetString("DialogTextNoCamera"), ResourceRetriever.GetString("ButtonTextOk"));
+                LogHelper.Error("Camera device is null");
+                return;
+            }
+
+            var microphoneDevice = await _deviceService.FindFirstMicrophoneDeviceAsync();
+            if (!string.IsNullOrEmpty(microphoneDeviceId))
+            {
+                microphoneDevice = await _deviceService.FindDeviceAsync(microphoneDeviceId);
+            }
+
+            if (microphoneDevice == null)
+            {
+                _dialogService.DisplayDialog(ResourceRetriever.GetString("DialogTextNoMicrophone"), ResourceRetriever.GetString("ButtonTextOk"));
+                LogHelper.Error("Microphone device is null");
+                return;
+            }
+
+            _mediaCapture = new MediaCapture();
+
+            // Register for a notification when video recording has reached the maximum time and when something goes wrong
+            _mediaCapture.RecordLimitationExceeded += RecordLimitationExceeded;
+            _mediaCapture.Failed += MediaCaptureFailed;
+
+            // Initialize MediaCapture
+            try
+            {
+                var mediaInitSettings = new MediaCaptureInitializationSettings
                 {
-                    cameraDevice = await _deviceService.FindDeviceAsync(cameraDeviceId);
+                    VideoDeviceId = cameraDevice.Id,
+                    AudioDeviceId = microphoneDevice.Id,
+                    StreamingCaptureMode = StreamingCaptureMode.AudioAndVideo,
+                    SharingMode = MediaCaptureSharingMode.ExclusiveControl
+                };
+
+                await _mediaCapture.InitializeAsync(mediaInitSettings);
+
+                _isInitialized = true;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _dialogService.DisplayDialog(ResourceRetriever.GetString("DialogTextCameraAccessDenied"), ResourceRetriever.GetString("ButtonTextOk"));
+                LogHelper.Error(ex.ToString());
+            }
+
+            // If initialization succeeded, start the preview
+            if (_isInitialized)
+            {
+                if (_mediaCapture.AudioDeviceController.Muted)
+                {
+                    _dialogService.DisplayDialog(ResourceRetriever.GetString("DialogTextMutedMicophone"), ResourceRetriever.GetString("ButtonTextOk"),
+                        ResourceRetriever.GetString("DialogTitle"));
                 }
 
-                if (cameraDevice == null)
-                {
-                    _dialogService.DisplayDialog(ResourceRetriever.GetString("DialogTextNoCamera"), ResourceRetriever.GetString("ButtonTextOk"));
-                    LogHelper.Error("Camera device is null");
-                    return;
-                }
+                _captureFolder = _fileService.CacheFolder();
 
-                var microphoneDevice = await _deviceService.FindFirstMicrophoneDeviceAsync();
-                if (!string.IsNullOrEmpty(microphoneDeviceId))
-                {
-                    microphoneDevice = await _deviceService.FindDeviceAsync(microphoneDeviceId);
-                }
+                await _deviceService.PopulateResolutionUi(cameraDevice.Id, MediaStreamType.VideoPreview,
+                    ComboBoxResolutions);
 
-                if (microphoneDevice == null)
-                {
-                    _dialogService.DisplayDialog(ResourceRetriever.GetString("DialogTextNoMicrophone"), ResourceRetriever.GetString("ButtonTextOk"));
-                    LogHelper.Error("Microphone device is null");
-                    return;
-                }
+                await StartPreviewAsync();
 
-                _mediaCapture = new MediaCapture();
-
-                // Register for a notification when video recording has reached the maximum time and when something goes wrong
-                _mediaCapture.RecordLimitationExceeded += RecordLimitationExceeded;
-                _mediaCapture.Failed += MediaCaptureFailed;
-
-                // Initialize MediaCapture
-                try
-                {
-                    var mediaInitSettings = new MediaCaptureInitializationSettings
-                    {
-                        VideoDeviceId = cameraDevice.Id,
-                        AudioDeviceId = microphoneDevice.Id,
-                        StreamingCaptureMode = StreamingCaptureMode.AudioAndVideo,
-                        SharingMode = MediaCaptureSharingMode.ExclusiveControl
-                    };
-
-                    await _mediaCapture.InitializeAsync(mediaInitSettings);
-
-                    _isInitialized = true;
-                }
-                catch (UnauthorizedAccessException ex)
-                {
-                    _dialogService.DisplayDialog(ResourceRetriever.GetString("DialogTextCameraAccessDenied"), ResourceRetriever.GetString("ButtonTextOk"));
-                    LogHelper.Error(ex.ToString());
-                }
-
-                // If initialization succeeded, start the preview
-                if (_isInitialized)
-                {
-                    if (_mediaCapture.AudioDeviceController.Muted)
-                    {
-                        _dialogService.DisplayDialog(ResourceRetriever.GetString("DialogTextMutedMicophone"), ResourceRetriever.GetString("ButtonTextOk"),
-                            ResourceRetriever.GetString("DialogTitle"));
-                    }
-
-                    _captureFolder = _fileService.CacheFolder();
-
-                    await _deviceService.PopulateResolutionUi(cameraDevice.Id, MediaStreamType.VideoPreview,
-                        ComboBoxResolutions);
-
-                    await StartPreviewAsync();
-
-                    UpdateCaptureControls();
-                }
+                UpdateCaptureControls();
             }
         }
 
