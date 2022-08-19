@@ -11,8 +11,6 @@ Minimum version is Windows 10, version 1809. Microsoft .NET 6.0.
 
 Recordings are temporarily saved to the application installation folder. When a recording is stopped, the file is moved to the Videos folder.
 
-Based upon the [Basic camera app sample](https://github.com/microsoft/windows-universal-samples/tree/main/Samples/CameraStarterKit) made available from Microsoft.
-
 ## Screenshots
 <img src="https://i.ibb.co/fQ6Zb3y/Inspelning2.png" alt="" border="0">
 <img src="https://i.ibb.co/6NGc6k3/Inspelning1.png" alt="" border="0">
